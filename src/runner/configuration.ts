@@ -12,6 +12,13 @@ const environmentSchema = z.object({
   REASONING_API_KEY: z.string().trim().min(1),
   REASONING_MODEL: z.string().trim().min(1),
 });
+const providerSettingSchema = z.enum([
+  'TYPESAFE_API_KEY',
+  'JEV_MODEL_ID',
+  'REASONING_API_ENDPOINT',
+  'REASONING_API_KEY',
+  'REASONING_MODEL',
+]);
 
 export type ProviderEnvironment = z.infer<typeof environmentSchema>;
 
@@ -55,4 +62,23 @@ export function parseProviderEnvironment(
   }
 
   return parsed.data;
+}
+
+export function getProviderConfigurationIssues(env: NodeJS.ProcessEnv): string[] {
+  const parsed = environmentSchema.safeParse({
+    TYPESAFE_API_KEY: env.TYPESAFE_API_KEY,
+    JEV_MODEL_ID: env.JEV_MODEL_ID,
+    REASONING_API_ENDPOINT: env.REASONING_API_ENDPOINT,
+    REASONING_API_KEY: env.REASONING_API_KEY,
+    REASONING_MODEL: env.REASONING_MODEL,
+  });
+  if (parsed.success) return [];
+
+  return [...new Set(parsed.error.issues
+    .map((issue) => issue.path[0])
+    .filter((field): field is string => typeof field === 'string')
+    .flatMap((field) => {
+      const setting = providerSettingSchema.safeParse(field);
+      return setting.success ? [setting.data] : [];
+    }))];
 }

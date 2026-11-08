@@ -5,25 +5,50 @@ import { randomUUID } from 'node:crypto';
 import * as z from 'zod';
 import {
   benchmarkReportSchema,
+  directStrategyIdSchema,
+  routerIdSchema,
   type BenchmarkReport,
 } from '../domain/schema.js';
-import type { MatrixProgress } from '../runner/matrix.js';
+import type { MatrixCellCompletion, MatrixProgress } from '../runner/matrix.js';
 
 const startRequestSchema = z.object({ confirmPaidRun: z.literal(true) }).strict();
 const idempotencyKeySchema = z.uuid();
 const reportFileNameSchema = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]*\.json$/);
+const requiredSettingsSchema = z.array(z.enum([
+  'TYPESAFE_API_KEY',
+  'JEV_MODEL_ID',
+  'REASONING_API_ENDPOINT',
+  'REASONING_API_KEY',
+  'REASONING_MODEL',
+]));
+const progressSchema = z.object({
+  index: z.number().int().positive(),
+  total: z.number().int().positive(),
+  taskId: z.enum(['todomvc-add-complete', 'the-internet-login']),
+  execution: z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('direct'), strategyId: directStrategyIdSchema }).strict(),
+    z.object({ kind: z.literal('router'), routerId: routerIdSchema }).strict(),
+  ]),
+}).strict();
 const maximumRequestBytes = 1_024;
 const defaultSampleReport = 'sample-report.json';
+const fallbackRequiredSettings = [
+  'TYPESAFE_API_KEY',
+  'REASONING_API_ENDPOINT',
+  'REASONING_API_KEY',
+  'REASONING_MODEL',
+] as const;
 
 export type PlaygroundRunner = (args: {
-  onCellComplete: (progress: MatrixProgress) => void;
+  onCellStart: (progress: MatrixProgress) => void;
+  onCellComplete: (cell: MatrixCellCompletion) => void;
 }) => Promise<{ report: BenchmarkReport; filePath: string }>;
 
 type RunState =
   | { kind: 'idle' }
-  | { kind: 'running'; runId: string; startedAt: string; progress: MatrixProgress | null }
-  | { kind: 'completed'; runId: string; startedAt: string; completedAt: string; reportFile: string }
-  | { kind: 'failed'; runId: string; startedAt: string; completedAt: string; errorCode: 'benchmark_failed' };
+  | { kind: 'running'; runId: string; startedAt: string; progress: MatrixProgress | null; completedCells: MatrixCellCompletion[] }
+  | { kind: 'completed'; runId: string; startedAt: string; completedAt: string; reportFile: string; completedCells: MatrixCellCompletion[] }
+  | { kind: 'failed'; runId: string; startedAt: string; completedAt: string; errorCode: 'benchmark_failed'; completedCells: MatrixCellCompletion[] };
 
 type ReportSummary = {
   fileName: string;
@@ -44,6 +69,7 @@ export async function createPlaygroundServer(args: {
   reportDirectory: string;
   runner: PlaygroundRunner;
   checkConfiguration: () => void;
+  getRequiredSettings: () => string[];
   host?: string;
   port?: number;
   staticDirectory?: string;
@@ -72,6 +98,7 @@ export async function createPlaygroundServer(args: {
       staticDirectory,
       runner: args.runner,
       checkConfiguration: args.checkConfiguration,
+      getRequiredSettings: args.getRequiredSettings,
       getState: () => state,
       setState: (next) => { state = next; },
       submissionKeys,
@@ -107,6 +134,7 @@ async function routeRequest(args: {
   staticDirectory: string | undefined;
   runner: PlaygroundRunner;
   checkConfiguration: () => void;
+  getRequiredSettings: () => string[];
   getState: () => RunState;
   setState: (state: RunState) => void;
   submissionKeys: Set<string>;
@@ -130,7 +158,10 @@ async function routeRequest(args: {
   }
 
   if (request.method === 'GET' && path === '/api/status') {
-    sendJson(response, 200, { state: args.getState() });
+    sendJson(response, 200, {
+      state: args.getState(),
+      requiredSettings: getSafeRequiredSettings(args.getRequiredSettings),
+    });
     return;
   }
   if (request.method === 'POST' && path === '/api/runs') {
@@ -164,6 +195,7 @@ async function startRun(args: {
   response: ServerResponse;
   runner: PlaygroundRunner;
   checkConfiguration: () => void;
+  getRequiredSettings: () => string[];
   getState: () => RunState;
   setState: (state: RunState) => void;
   submissionKeys: Set<string>;
@@ -198,13 +230,24 @@ async function startRun(args: {
     return;
   }
 
+  const requiredSettings = getSafeRequiredSettings(args.getRequiredSettings);
+  if (requiredSettings.length > 0) {
+    args.submissionKeys.add(key);
+    sendJson(args.response, 503, {
+      error: 'provider_configuration_missing',
+      requiredSettings,
+    });
+    return;
+  }
+
   try {
     args.checkConfiguration();
   } catch {
     args.submissionKeys.add(key);
+    const requiredSettings = getSafeRequiredSettings(args.getRequiredSettings);
     sendJson(args.response, 503, {
       error: 'provider_configuration_missing',
-      requiredSettings: ['TYPESAFE_API_KEY', 'REASONING_API_ENDPOINT', 'REASONING_API_KEY', 'REASONING_MODEL'],
+      requiredSettings: requiredSettings.length > 0 ? requiredSettings : [...fallbackRequiredSettings],
     });
     return;
   }
@@ -212,35 +255,62 @@ async function startRun(args: {
   const runId = randomUUID();
   const startedAt = new Date().toISOString();
   args.submissionKeys.add(key);
-  args.setState({ kind: 'running', runId, startedAt, progress: null });
+  args.setState({ kind: 'running', runId, startedAt, progress: null, completedCells: [] });
   sendJson(args.response, 202, { runId, state: args.getState() });
 
   void Promise.resolve().then(() => args.runner({
-    onCellComplete: (progress) => {
+    onCellStart: (progress) => {
       const currentState = args.getState();
       if (currentState.kind === 'running' && currentState.runId === runId) {
-        args.setState({ kind: 'running', runId, startedAt, progress });
+        args.setState({ ...currentState, progress: progressSchema.parse(progress) });
+      }
+    },
+    onCellComplete: (cell) => {
+      const currentState = args.getState();
+      if (currentState.kind === 'running' && currentState.runId === runId) {
+        args.setState({
+          ...currentState,
+          progress: null,
+          completedCells: [...currentState.completedCells, cell],
+        });
       }
     },
   })).then(({ filePath }) => {
     const reportFile = basename(filePath);
     if (!reportFileNameSchema.safeParse(reportFile).success) throw new Error('Invalid report output path.');
+    const currentState = args.getState();
     args.setState({
       kind: 'completed',
       runId,
       startedAt,
       completedAt: new Date().toISOString(),
       reportFile,
+      completedCells: currentState.kind === 'running' && currentState.runId === runId
+        ? currentState.completedCells
+        : [],
     });
   }).catch(() => {
+    const currentState = args.getState();
     args.setState({
       kind: 'failed',
       runId,
       startedAt,
       completedAt: new Date().toISOString(),
       errorCode: 'benchmark_failed',
+      completedCells: currentState.kind === 'running' && currentState.runId === runId
+        ? currentState.completedCells
+        : [],
     });
   });
+}
+
+function getSafeRequiredSettings(getRequiredSettings: () => string[]): string[] {
+  try {
+    const parsed = requiredSettingsSchema.safeParse(getRequiredSettings());
+    return parsed.success ? [...new Set(parsed.data)] : [...fallbackRequiredSettings];
+  } catch {
+    return [...fallbackRequiredSettings];
+  }
 }
 
 async function listReports(directory: string, sampleReportFile: string): Promise<ReportSummary[]> {

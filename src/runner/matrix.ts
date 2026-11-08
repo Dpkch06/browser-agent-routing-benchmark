@@ -40,7 +40,7 @@ export type BrowserFactory = {
   getEnvironment: () => Promise<BrowserEnvironment>;
 };
 
-type Approach =
+export type MatrixApproach =
   | { kind: 'direct'; strategyId: DirectStrategyId }
   | { kind: 'router'; routerId: RouterId };
 
@@ -48,7 +48,14 @@ export type MatrixProgress = {
   index: number;
   total: number;
   taskId: TaskId;
+  execution: MatrixApproach;
+};
+
+export type MatrixCellCompletion = {
+  taskId: TaskId;
   execution: Execution;
+  outcome: BenchmarkResult['outcome'];
+  durationMs: number;
 };
 
 type CellOutput = {
@@ -66,44 +73,43 @@ export async function runMatrix(args: {
   tasks?: readonly PracticeTask[];
   suite: StrategySuite;
   reportDir: string;
-  onCellComplete?: (progress: MatrixProgress) => void | Promise<void>;
+  onCellStart?: (progress: MatrixProgress) => void | Promise<void>;
+  onCellComplete?: (cell: MatrixCellCompletion) => void | Promise<void>;
 }): Promise<{ report: BenchmarkReport; filePath: string }> {
   const tasks = args.tasks ?? practiceTasks;
   const startedAt = new Date();
   const results: BenchmarkResult[] = [];
   const totalCells = tasks.length * (directStrategyIds.length + routerIds.length);
 
+  const executeCell = async (task: PracticeTask, approach: MatrixApproach): Promise<void> => {
+    await args.onCellStart?.({
+      index: results.length + 1,
+      total: totalCells,
+      taskId: task.definition.id,
+      execution: approach,
+    });
+    const result = await runCell({
+      browserFactory: args.browserFactory,
+      suite: args.suite,
+      task,
+      approach,
+    });
+    results.push(result);
+    await args.onCellComplete?.({
+      taskId: result.taskId,
+      execution: result.execution,
+      outcome: result.outcome,
+      durationMs: result.durationMs,
+    });
+  };
+
   for (const task of tasks) {
     for (const strategyId of directStrategyIds) {
-      const result = await runCell({
-        browserFactory: args.browserFactory,
-        suite: args.suite,
-        task,
-        approach: { kind: 'direct', strategyId },
-      });
-      results.push(result);
-      await args.onCellComplete?.({
-        index: results.length,
-        total: totalCells,
-        taskId: result.taskId,
-        execution: result.execution,
-      });
+      await executeCell(task, { kind: 'direct', strategyId });
     }
 
     for (const routerId of routerIds) {
-      const result = await runCell({
-        browserFactory: args.browserFactory,
-        suite: args.suite,
-        task,
-        approach: { kind: 'router', routerId },
-      });
-      results.push(result);
-      await args.onCellComplete?.({
-        index: results.length,
-        total: totalCells,
-        taskId: result.taskId,
-        execution: result.execution,
-      });
+      await executeCell(task, { kind: 'router', routerId });
     }
   }
 
@@ -128,7 +134,7 @@ async function runCell(args: {
   browserFactory: BrowserFactory;
   suite: StrategySuite;
   task: PracticeTask;
-  approach: Approach;
+  approach: MatrixApproach;
 }): Promise<BenchmarkResult> {
   const startedAt = performance.now();
   const usageParts: ProviderUsage[] = [];

@@ -14,7 +14,7 @@ import { practiceTasks, type PracticeTask, type TaskVerification } from '../../s
 import { StrategyExecutionError, type StrategySuite } from '../../src/strategies/index.js';
 import type { DirectStrategy, DirectStrategyRun } from '../../src/strategies/direct.js';
 import type { RouterSelection, StrategyRouter } from '../../src/strategies/routers.js';
-import { runMatrix, type BrowserFactory, type MatrixProgress } from '../../src/runner/matrix.js';
+import { runMatrix, type BrowserFactory, type MatrixCellCompletion, type MatrixProgress } from '../../src/runner/matrix.js';
 
 let browser: Browser | undefined;
 const temporaryDirectories: string[] = [];
@@ -214,21 +214,33 @@ describe('runMatrix', () => {
     const browserFactory = testBrowserFactory(browser);
     const reportDir = await createReportDirectory();
     const progress: MatrixProgress[] = [];
+    const completed: MatrixCellCompletion[] = [];
     const { report, filePath } = await runMatrix({
       browserFactory: browserFactory.factory,
       tasks: testTasks(),
       suite: fakeSuite(),
       reportDir,
-      onCellComplete: (cell) => { progress.push(cell); },
+      onCellStart: (cell) => { progress.push(cell); },
+      onCellComplete: (cell) => { completed.push(cell); },
     });
 
     expect(report.results).toHaveLength(12);
     expect(browserFactory.createdSessions()).toBe(12);
     expect(progress.map(({ index }) => index)).toEqual(Array.from({ length: 12 }, (_, index) => index + 1));
     expect(progress.every(({ total }) => total === 12)).toBe(true);
-    expect(progress.map(({ taskId, execution }) => ({ taskId, execution }))).toEqual(
-      report.results.map(({ taskId, execution }) => ({ taskId, execution })),
-    );
+    expect(progress.map(({ taskId }) => taskId)).toEqual(report.results.map(({ taskId }) => taskId));
+    expect(progress[0]).toMatchObject({
+      index: 1,
+      total: 12,
+      taskId: 'todomvc-add-complete',
+      execution: { kind: 'direct', strategyId: 'deterministic-playwright' },
+    });
+    expect(completed).toEqual(report.results.map(({ taskId, execution, outcome, durationMs }) => ({
+      taskId,
+      execution,
+      outcome,
+      durationMs,
+    })));
     expect(report.results.slice(0, 6).map(strategyKey)).toEqual([
       'deterministic-playwright',
       'jev-guided-playwright',

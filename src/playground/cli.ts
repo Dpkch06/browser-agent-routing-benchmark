@@ -4,7 +4,7 @@ import { chromium } from 'playwright';
 import * as z from 'zod';
 import { practiceTasks } from '../tasks/registry.js';
 import { createStrategySuite } from '../strategies/index.js';
-import { createProvidersFromEnvironment, parseProviderEnvironment } from '../runner/configuration.js';
+import { createProvidersFromEnvironment, getProviderConfigurationIssues, parseProviderEnvironment } from '../runner/configuration.js';
 import { PlaywrightBrowserFactory } from '../runner/browser-factory.js';
 import { runMatrix } from '../runner/matrix.js';
 import { createPlaygroundServer } from './server.js';
@@ -19,7 +19,8 @@ async function main(): Promise<void> {
     reportDirectory: resolve(process.cwd(), 'benchmarks/results'),
     staticDirectory: resolve(process.cwd(), 'playground'),
     checkConfiguration: () => { parseProviderEnvironment(process.env); },
-    runner: async ({ onCellComplete }) => {
+    getRequiredSettings: () => getProviderConfigurationIssues(process.env),
+    runner: async ({ onCellStart, onCellComplete }) => {
       const providers = createProvidersFromEnvironment(process.env);
       const packageMetadata: unknown = require('playwright/package.json');
       const { version: playwrightVersion } = z.object({ version: z.string().trim().min(1) }).parse(packageMetadata);
@@ -31,6 +32,7 @@ async function main(): Promise<void> {
           tasks: practiceTasks,
           suite,
           reportDir: resolve(process.cwd(), 'benchmarks/results'),
+          onCellStart,
           onCellComplete,
         });
       } finally {

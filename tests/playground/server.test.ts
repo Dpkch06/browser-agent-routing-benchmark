@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { benchmarkReportSchema, directStrategyIds, routerIds, taskIds, type BenchmarkReport } from '../../src/domain/schema.js';
 import { createPlaygroundServer, type PlaygroundRunner } from '../../src/playground/server.js';
+import type { MatrixProgress, MatrixCellCompletion } from '../../src/runner/matrix.js';
 
 const servers: Array<{ close: () => Promise<void> }> = [];
 const directories: string[] = [];
@@ -14,6 +15,17 @@ afterEach(async () => {
 });
 
 describe('playground server', () => {
+  it('reports safe missing settings and an empty list when provider configuration is ready', async () => {
+    const missingSettings = ['TYPESAFE_API_KEY', 'REASONING_API_KEY'];
+    const missing = await createServer({ getRequiredSettings: () => missingSettings });
+    const missingResponse = await fetch(missing.url + '/api/status');
+    expect(await missingResponse.json()).toEqual({ state: { kind: 'idle' }, requiredSettings: missingSettings });
+
+    const ready = await createServer({ getRequiredSettings: () => [] });
+    const readyResponse = await fetch(ready.url + '/api/status');
+    expect(await readyResponse.json()).toEqual({ state: { kind: 'idle' }, requiredSettings: [] });
+  });
+
   it('requires an explicit paid-run confirmation and does not invoke the runner without it', async () => {
     let runCount = 0;
     const server = await createServer({
@@ -66,12 +78,26 @@ describe('playground server', () => {
       resolveRun = resolve;
     });
     const server = await createServer({
-      runner: async ({ onCellComplete }) => {
-        await onCellComplete({
+      runner: async ({ onCellStart, onCellComplete }) => {
+        const firstStart: MatrixProgress = {
           index: 1,
           total: 12,
           taskId: 'todomvc-add-complete',
           execution: { kind: 'direct', strategyId: 'deterministic-playwright' },
+        };
+        const firstCompletion: MatrixCellCompletion = {
+          taskId: 'todomvc-add-complete',
+          execution: { kind: 'direct', strategyId: 'deterministic-playwright' },
+          outcome: { status: 'succeeded', verification: 'passed' },
+          durationMs: 321,
+        };
+        await onCellStart(firstStart);
+        await onCellComplete(firstCompletion);
+        await onCellStart({
+          index: 2,
+          total: 12,
+          taskId: 'todomvc-add-complete',
+          execution: { kind: 'direct', strategyId: 'jev-guided-playwright' },
         });
         return pending;
       },
@@ -82,12 +108,22 @@ describe('playground server', () => {
     await waitFor(async () => {
       const response = await fetch(server.url + '/api/status');
       const body = await response.json();
-      return body.state?.progress?.index === 1;
+      return body.state?.progress?.index === 2;
     });
 
     const active = await fetch(server.url + '/api/status');
     const activeBody = await active.json();
-    expect(activeBody.state).toMatchObject({ kind: 'running', runId, progress: { index: 1, total: 12 } });
+    expect(activeBody.state).toMatchObject({
+      kind: 'running',
+      runId,
+      progress: { index: 2, total: 12, execution: { kind: 'direct', strategyId: 'jev-guided-playwright' } },
+      completedCells: [{
+        taskId: 'todomvc-add-complete',
+        execution: { kind: 'direct', strategyId: 'deterministic-playwright' },
+        outcome: { status: 'succeeded', verification: 'passed' },
+        durationMs: 321,
+      }],
+    });
     expect(JSON.stringify(activeBody)).not.toContain('task inputs');
 
     resolveRun?.({ report: reportFixture(), filePath: 'run.json' });
@@ -137,12 +173,32 @@ describe('playground server', () => {
     expect(body).not.toContain('secret-value');
     expect(runnerCalled).toBe(false);
   });
+
+  it('rejects a run when status reports missing settings, even if the runner is available', async () => {
+    let runnerCalled = false;
+    const server = await createServer({
+      getRequiredSettings: () => ['TYPESAFE_API_KEY'],
+      runner: async () => {
+        runnerCalled = true;
+        return { report: reportFixture(), filePath: 'unused.json' };
+      },
+    });
+
+    const response = await submitRun(server.url, '00000000-0000-4000-8000-000000000006');
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      error: 'provider_configuration_missing',
+      requiredSettings: ['TYPESAFE_API_KEY'],
+    });
+    expect(runnerCalled).toBe(false);
+  });
 });
 
 async function createServer(overrides: {
   reportDirectory?: string;
   runner?: PlaygroundRunner;
   checkConfiguration?: () => void;
+  getRequiredSettings?: () => string[];
 } = {}): Promise<{ url: string; close: () => Promise<void> }> {
   const reportDirectory = overrides.reportDirectory ?? await mkdtemp(join(tmpdir(), 'playground-reports-'));
   if (!overrides.reportDirectory) directories.push(reportDirectory);
@@ -152,6 +208,7 @@ async function createServer(overrides: {
     reportDirectory,
     runner: overrides.runner ?? (async () => ({ report: reportFixture(), filePath: 'unused.json' })),
     checkConfiguration: overrides.checkConfiguration ?? (() => undefined),
+    getRequiredSettings: overrides.getRequiredSettings ?? (() => []),
   });
   servers.push(server);
   return server;

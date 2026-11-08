@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseProviderEnvironment } from '../../src/runner/configuration.js';
+import { getProviderConfigurationIssues, parseProviderEnvironment } from '../../src/runner/configuration.js';
 
 describe('parseProviderEnvironment', () => {
   it('pins a Jev model by default and accepts explicit reasoning settings', () => {
@@ -37,5 +37,25 @@ describe('parseProviderEnvironment', () => {
       REASONING_API_KEY: 'test-reasoning-key',
       REASONING_MODEL: 'reasoning-test-model',
     })).toThrow(/REASONING_API_ENDPOINT/);
+  });
+});
+
+describe('getProviderConfigurationIssues', () => {
+  it('returns safe setting names for invalid configuration and none when ready', () => {
+    const incomplete = getProviderConfigurationIssues({
+      TYPESAFE_API_KEY: 'must-not-be-returned',
+      REASONING_API_KEY: 'another-private-value',
+    });
+    expect(incomplete).toContain('REASONING_API_ENDPOINT');
+    expect(incomplete).toContain('REASONING_MODEL');
+    expect(incomplete).not.toContain('must-not-be-returned');
+    expect(incomplete).not.toContain('another-private-value');
+
+    expect(getProviderConfigurationIssues({
+      TYPESAFE_API_KEY: 'key',
+      REASONING_API_ENDPOINT: 'https://models.example/v1/chat/completions',
+      REASONING_API_KEY: 'key',
+      REASONING_MODEL: 'model',
+    })).toEqual([]);
   });
 });
