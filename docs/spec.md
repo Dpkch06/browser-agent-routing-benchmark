@@ -28,7 +28,7 @@ The report stores task IDs, not task instructions or credential inputs. It store
 - Routers select one direct strategy.
 - A separate verifier decides whether the requested browser state was reached.
 - A matrix runner captures one result per task and approach.
-- The dashboard reads result reports and does not execute browsers or call models.
+- The local playground starts an explicit matrix run through its Node server and reads saved reports. Provider calls and credentials stay server-side; the browser never calls providers directly.
 
 ## Failure and repeat rules
 
@@ -37,3 +37,4 @@ A strategy failure is data, not a reason to stop the matrix. The runner records 
 ## Local checks
 
 Unit tests cover schema validation, routing decisions, task verification, and report serialization. They use fixed data and fake providers. Live websites and paid model endpoints are used only by explicit smoke or benchmark commands.
+

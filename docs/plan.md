@@ -31,9 +31,10 @@ Build a clean, independent benchmark that compares direct browser execution stra
 2. Implement task definitions and shared verification. Blocked by 1.
 3. Implement direct strategies and routers. Blocked by 1.
 4. Build the matrix runner and result writer. Blocked by 2 and 3.
-5. Build the dashboard for saved reports. Blocked by 4.
+5. Build the local playground and dashboard for running the full matrix and inspecting saved reports. Blocked by 4.
 6. Document setup and the demo workflow. Blocked by 1 and 4.
 
 ## Ask Matt workflow
 
 Use domain modeling while fixing vocabulary and decisions, to-spec for the buildable specification, and to-tickets for the issue graph. Implement blockers first with the implement-spec flow where parallel work is safe. Each implementation ticket should use TDD at its declared seams. Close the build with code-review and retro.
+
