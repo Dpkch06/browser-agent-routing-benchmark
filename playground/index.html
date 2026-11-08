@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#174fb5">
+    <title>Browser agent routing benchmark</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Browser agent routing benchmark home">
+        <span class="brand-mark" aria-hidden="true">B</span>
+        <span>Browser agent routing benchmark</span>
+      </a>
+      <div class="server-state" id="server-state" aria-live="polite">
+        <span class="state-dot" aria-hidden="true"></span>
+        <span id="server-state-label">Connecting to local server</span>
+      </div>
+    </header>
+
+    <main class="page-shell">
+      <section class="intro" aria-labelledby="page-title">
+        <div>
+          <h1 id="page-title">Compare browser strategies</h1>
+          <p class="lede">Run all six approaches against the same two practice tasks. Review each verified outcome and its reported usage.</p>
+        </div>
+        <div class="run-action">
+          <button class="button button-primary" id="run-button" type="button" disabled>Start full matrix</button>
+          <p class="run-note" id="run-note">Checking provider configuration…</p>
+        </div>
+      </section>
+
+      <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+
+      <section class="workspace" aria-label="Benchmark workspace">
+        <div class="primary-column">
+          <section class="panel run-panel" aria-labelledby="run-title">
+            <div class="panel-heading">
+              <div>
+                <h2 id="run-title">Current run</h2>
+                <p id="run-subtitle">No benchmark is running.</p>
+              </div>
+              <strong class="progress-count nums" id="progress-count">0 / 12</strong>
+            </div>
+            <div class="progress-track" role="progressbar" aria-label="Benchmark cell progress" aria-valuemin="0" aria-valuemax="12" aria-valuenow="0" id="progress-bar">
+              <span id="progress-fill"></span>
+            </div>
+            <div class="table-wrap">
+              <table class="matrix-table">
+                <caption class="sr-only">Benchmark outcomes for both practice tasks and all six approaches</caption>
+                <thead>
+                  <tr>
+                    <th scope="col" class="task-column">Practice task</th>
+                    <th scope="col">Deterministic</th>
+                    <th scope="col">Jev-guided</th>
+                    <th scope="col">Reasoning</th>
+                    <th scope="col">Rule router</th>
+                    <th scope="col">Jev router</th>
+                    <th scope="col">Reasoning router</th>
+                  </tr>
+                </thead>
+                <tbody id="matrix-body"></tbody>
+              </table>
+            </div>
+            <div class="matrix-legend" aria-label="Result state legend">
+              <span><i class="legend-mark mark-pass" aria-hidden="true"></i>Verified</span>
+              <span><i class="legend-mark mark-fail" aria-hidden="true"></i>Failed</span>
+              <span><i class="legend-mark mark-active" aria-hidden="true"></i>Running</span>
+              <span><i class="legend-mark mark-pending" aria-hidden="true"></i>Queued</span>
+            </div>
+          </section>
+
+          <section class="panel detail-panel" aria-labelledby="detail-title">
+            <div class="panel-heading detail-heading">
+              <div>
+                <h2 id="detail-title">Selected report</h2>
+                <p id="report-context">Choose a saved report to inspect its results.</p>
+              </div>
+              <span class="report-kind" id="report-kind" hidden></span>
+            </div>
+            <div id="report-detail" class="report-detail empty-detail">
+              <p>Report details will appear here after you select a run.</p>
+            </div>
+          </section>
+        </div>
+
+        <aside class="panel reports-panel" aria-labelledby="reports-title">
+          <div class="panel-heading reports-heading">
+            <div>
+              <h2 id="reports-title">Saved reports</h2>
+              <p id="reports-count">Loading reports…</p>
+            </div>
+            <button class="icon-button" id="refresh-reports" type="button" aria-label="Refresh saved reports" title="Refresh reports">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16.5 8a6.7 6.7 0 0 0-12.1-2L2.8 8M3.5 12a6.7 6.7 0 0 0 12.1 2l1.6-2"/><path d="M2.8 4.8V8h3.3M17.2 15.2V12h-3.3"/></svg>
+            </button>
+          </div>
+          <div id="reports-list" class="reports-list" aria-live="polite"></div>
+        </aside>
+      </section>
+      <footer class="page-footer"><span>Reports are read from <code>benchmarks/results</code>.</span><span>Provider keys stay in the local server environment.</span></footer>
+    </main>
+
+    <dialog id="confirm-dialog" class="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-description">
+      <form method="dialog" class="dialog-close-row"><button class="icon-button" value="cancel" aria-label="Close confirmation"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 5 10 10M15 5 5 15"/></svg></button></form>
+      <h2 id="confirm-title">Start one full matrix run?</h2>
+      <p id="confirm-description">This run executes 12 cells across both practice tasks. Model providers may incur usage charges. The run will be saved as a report in this repository.</p>
+      <div class="dialog-actions">
+        <button class="button button-secondary" id="cancel-run" type="button">Cancel</button>
+        <button class="button button-primary" id="confirm-run" type="button">Confirm and start</button>
+      </div>
+    </dialog>
+  </body>
+</html>
