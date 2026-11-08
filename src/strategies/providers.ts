@@ -18,6 +18,7 @@ export const providerUsageSchema = z.object({
   inputTokens: z.number().int().nonnegative().optional(),
   outputTokens: z.number().int().nonnegative().optional(),
   costUsd: z.number().nonnegative().finite().optional(),
+  usagePartial: z.boolean().optional(),
 }).strict();
 
 export const decisionResponseSchema = z.object({
@@ -112,6 +113,7 @@ export class TypeSafeChoiceProvider implements DecisionProvider {
         modelCalls: 1,
         ...(inputTokens === undefined ? {} : { inputTokens }),
         ...(outputTokens === undefined ? {} : { outputTokens }),
+        ...(inputTokens === undefined || outputTokens === undefined ? { usagePartial: true } : {}),
       },
       models: [{
         stage: request.stage,
@@ -133,6 +135,7 @@ const openAICompatibleResponseSchema = z.object({
   usage: z.object({
     prompt_tokens: z.number().int().nonnegative().optional(),
     completion_tokens: z.number().int().nonnegative().optional(),
+    cost_usd: z.number().nonnegative().finite().optional(),
   }).passthrough().optional(),
 }).passthrough();
 
@@ -220,6 +223,7 @@ export class OpenAICompatibleChoiceProvider implements DecisionProvider {
 
     const inputTokens = parsed.usage?.prompt_tokens;
     const outputTokens = parsed.usage?.completion_tokens;
+    const costUsd = parsed.usage?.cost_usd;
     const modelVersion = parsed.model;
     const model: ModelMetadata = {
       stage: request.stage,
@@ -234,6 +238,8 @@ export class OpenAICompatibleChoiceProvider implements DecisionProvider {
         modelCalls: 1,
         ...(inputTokens === undefined ? {} : { inputTokens }),
         ...(outputTokens === undefined ? {} : { outputTokens }),
+        ...(costUsd === undefined ? {} : { costUsd }),
+        ...(inputTokens === undefined || outputTokens === undefined ? { usagePartial: true } : {}),
       },
       models: [model],
     });
@@ -245,3 +251,5 @@ function assertOfferedChoice(choiceId: string, options: readonly DecisionOption[
     throw new Error('Provider selected an ID outside the offered choices.');
   }
 }
+
+

@@ -33,6 +33,26 @@ describe('TypeSafeChoiceProvider', () => {
     expect(result.usage).toEqual({ modelCalls: 1, inputTokens: 28, outputTokens: 4 });
   });
 
+  it('marks token usage partial when a successful response omits counters', async () => {
+    const provider = new TypeSafeChoiceProvider({
+      apiKey: 'test-key',
+      modelId: 'jev-1.14.0',
+      fetchFn: async () => new Response(JSON.stringify({
+        model: 'jev-1.14.0',
+        answers: { selection: { type: 'choice', choice: 'deterministic-playwright' } },
+        usage: { input_tokens: 28 },
+      }), { status: 200 }),
+    });
+
+    const result = await provider.choose(request);
+
+    expect(result.usage).toEqual({
+      modelCalls: 1,
+      inputTokens: 28,
+      usagePartial: true,
+    });
+  });
+
   it('rejects a response that selects an option outside the offered set', async () => {
     const provider = new TypeSafeChoiceProvider({
       apiKey: 'test-key',

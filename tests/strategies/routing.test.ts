@@ -8,6 +8,7 @@ import type {
   DecisionRequest,
 } from '../../src/strategies/providers.js';
 import type { TaskDefinition } from '../../src/domain/schema.js';
+import { StrategyExecutionError } from '../../src/strategies/index.js';
 
 const todoTask: TaskDefinition = {
   id: 'todomvc-add-complete',
@@ -45,13 +46,18 @@ describe('chooseRuleBasedStrategy', () => {
       },
     };
     const router = new ModelBasedRouter({ id: 'jev-router', provider });
+    const taskWithEchoedInputs = {
+      ...loginTask,
+      instruction: 'Sign in as demo-user using private-value.',
+    };
 
-    const selection = await router.route(loginTask);
+    const selection = await router.route(taskWithEchoedInputs);
 
     expect(selection.strategyId).toBe('reasoning-model-playwright');
     expect(selection.usage.modelCalls).toBe(1);
     expect(captured?.stage).toBe('router');
     expect(captured?.state).not.toContain('private-value');
+    expect(captured?.state).not.toContain('demo-user');
   });
 
   it('rejects a provider choice outside the direct strategy set', async () => {
@@ -64,6 +70,35 @@ describe('chooseRuleBasedStrategy', () => {
     };
     const router = new ModelBasedRouter({ id: 'jev-router', provider });
 
-    await expect(router.route(loginTask)).rejects.toThrow(/unknown direct strategy/i);
+    await expect(router.route(loginTask)).rejects.toMatchObject({
+      failureCode: 'invalid_route_choice',
+      message: 'invalid_route_choice',
+    });
+  });
+
+  it('counts a failed router provider call without exposing its error text', async () => {
+    const provider: DecisionProvider = {
+      choose: async () => {
+        throw new Error('private provider response and key');
+      },
+    };
+    const router = new ModelBasedRouter({ id: 'jev-router', provider });
+
+    try {
+      await router.route(loginTask);
+      throw new Error('Expected router provider failure.');
+    } catch (error) {
+      expect(error).toBeInstanceOf(StrategyExecutionError);
+      expect(error).toMatchObject({
+        phase: 'route',
+        failureCode: 'router_provider_failed',
+        usage: { modelCalls: 1, usagePartial: true },
+        models: [],
+        message: 'router_provider_failed',
+      });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      expect(errorMessage).not.toContain('private provider response and key');
+    }
   });
 });
+

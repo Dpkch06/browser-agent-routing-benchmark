@@ -17,7 +17,7 @@ The tasks are TodoMVC add-and-complete and The Internet practice login. The task
 
 ## Result contract
 
-A result report has schema version, run ID, UTC timestamps, browser environment details, and one result for every task and approach. Each result records the direct strategy or router, the selected direct strategy for a successful route, outcome, duration, model call count, available token or cost totals, and optional model provider, model ID, and version metadata by stage. A route failure is a failed result with a route phase.
+A result report has schema version, run ID, UTC timestamps, browser environment details, and one result for every task and approach. Each result records the direct strategy or router, the selected direct strategy for a successful route, outcome, duration, model call count, available token or cost totals, an optional usagePartial flag when an attempted call has unknown totals, and model provider, model ID, and version metadata by stage. A route failure is a failed result with a route phase.
 
 The report stores task IDs, not task instructions or credential inputs. It stores no API keys, prompts, page snapshots, or full tool-call traces. Provider outputs must be reduced to the selected strategy, non-sensitive model identity, and aggregate usage before serialization.
 

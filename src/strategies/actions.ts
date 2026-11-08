@@ -18,6 +18,7 @@ export const browserControlSchema = z.object({
   disabled: z.boolean(),
   checked: z.boolean().optional(),
   nativeInput: z.boolean().optional(),
+  nativeIndex: z.number().int().nonnegative().optional(),
 }).strict();
 
 export const pageObservationSchema = z.object({
@@ -143,6 +144,7 @@ export async function observePage(page: Page): Promise<PageObservation> {
         disabled: boolean;
         checked?: boolean;
         nativeInput?: boolean;
+        nativeIndex?: number;
       }> = [];
 
       for (const element of elements) {
@@ -160,13 +162,18 @@ export async function observePage(page: Page): Promise<PageObservation> {
           name: string;
           disabled: boolean;
           checked?: boolean;
-        nativeInput?: boolean;
+          nativeInput?: boolean;
+          nativeIndex?: number;
         } = {
           role,
           name,
           disabled: isDisabled(element),
           nativeInput: element instanceof HTMLInputElement,
         };
+
+        if (element instanceof HTMLInputElement && role === 'checkbox') {
+          control.nativeIndex = Array.from(document.querySelectorAll('input[type=checkbox]')).indexOf(element);
+        }
 
         if (element instanceof HTMLInputElement && (role === 'checkbox' || role === 'radio')) {
           control.checked = element.checked;
@@ -198,8 +205,12 @@ export async function observePage(page: Page): Promise<PageObservation> {
 export function buildActionChoices(
   observation: PageObservation,
   task: TaskDefinition,
+  actionHistory: readonly BrowserAction[] = [],
 ): ActionChoice[] {
   const choices: ActionChoice[] = [];
+  const filledInputKeys = new Set(
+    actionHistory.filter((action) => action.kind === 'fill').map((action) => action.inputKey),
+  );
 
   for (const control of observation.controls) {
     if (control.disabled) continue;
@@ -207,6 +218,7 @@ export function buildActionChoices(
 
     if (control.role === 'textbox') {
       for (const inputKey of Object.keys(task.inputs)) {
+        if (filledInputKeys.has(inputKey)) continue;
         choices.push({
           id: 'fill:' + control.id + ':' + inputKey,
           description: 'Fill the ' + JSON.stringify(safeName) + ' field with task input ' + JSON.stringify(inputKey) + '.',
@@ -262,10 +274,14 @@ export async function performBrowserAction(
   const control = observation.controls.find((candidate) => candidate.id === action.targetId);
   if (!control) throw new Error('The selected browser action target is no longer available.');
 
-  const locator = page.getByRole(control.role, {
-    name: control.name,
-    exact: true,
-  }).nth(control.occurrence);
+  const locator = control.nativeInput === true
+    && control.role === 'checkbox'
+    && control.nativeIndex !== undefined
+    ? page.locator('input[type=checkbox]').nth(control.nativeIndex)
+    : page.getByRole(control.role, {
+      name: control.name,
+      exact: true,
+    }).nth(control.occurrence);
 
   switch (action.kind) {
     case 'click':
@@ -320,3 +336,7 @@ export function redactInputValues(text: string, inputValues: string[]): string {
     value.length === 0 ? result : result.split(value).join('[task input]')
   ), text);
 }
+
+
+
+

@@ -74,6 +74,7 @@ const usageSchema = z.object({
   inputTokens: z.number().int().nonnegative().optional(),
   outputTokens: z.number().int().nonnegative().optional(),
   costUsd: z.number().nonnegative().finite().optional(),
+  usagePartial: z.boolean().optional(),
 }).strict();
 
 export const modelMetadataSchema = z.object({
@@ -180,3 +181,5 @@ export type Execution = z.infer<typeof executionSchema>;
 export type BenchmarkResult = z.infer<typeof benchmarkResultSchema>;
 export type BenchmarkReport = z.infer<typeof benchmarkReportSchema>;
 export type ModelMetadata = z.infer<typeof modelMetadataSchema>;
+
+

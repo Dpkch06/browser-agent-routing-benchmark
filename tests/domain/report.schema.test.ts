@@ -57,6 +57,18 @@ describe('benchmark report schema', () => {
     expect(parsed.results).toHaveLength(12);
   });
 
+  it('round-trips the usage partial marker without storing private inputs', () => {
+    const report = validReport();
+    const direct = report.results.find((result) => result.execution.kind === 'direct');
+    if (!direct) throw new Error('Expected a direct result in the matrix fixture');
+    direct.usage.usagePartial = true;
+
+    const parsed = benchmarkReportSchema.parse(report);
+
+    expect(parsed.results.find((result) => result.execution.kind === 'direct')?.usage.usagePartial)
+      .toBe(true);
+  });
+
   it('rejects an incomplete matrix', () => {
     const report = validReport();
     report.results.pop();

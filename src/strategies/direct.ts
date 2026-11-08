@@ -11,12 +11,15 @@ import {
   redactInputValues,
   safeTaskContext,
   type ActionChoice,
+  type BrowserAction,
 } from './actions.js';
 import {
   type DecisionProvider,
   type DecisionRequest,
+  type DecisionResponse,
   type ProviderUsage,
 } from './providers.js';
+import { StrategyExecutionError } from './errors.js';
 
 export type DirectStrategyRun = {
   actions: number;
@@ -39,7 +42,7 @@ export type DirectStrategyProviders = {
   reasoning: DecisionProvider;
 };
 
-const maxAgentActions = 12;
+const maxAgentDecisions = 6;
 
 export function createDirectStrategies(
   providers: DirectStrategyProviders,
@@ -100,22 +103,46 @@ export class GuidedPlaywrightStrategy implements DirectStrategy {
       models: ModelMetadata[];
     }> = [];
     let actions = 0;
+    let decisionsMade = 0;
+    const actionHistory: BrowserAction[] = [];
 
-    while (actions < maxAgentActions) {
+    while (decisionsMade < maxAgentDecisions) {
       const observation = await observePage(page);
-      const choices = buildActionChoices(observation, task);
+      const choices = buildActionChoices(observation, task, actionHistory);
       const request: DecisionRequest = {
         stage: 'executor',
         question: 'Choose the next browser action. Choose finish only when the requested task is complete.',
-        state: createSafeDecisionState(task, observation),
+        state: createSafeDecisionState(task, observation, actionHistory),
         options: choices.map((choice) => ({
           id: choice.id,
           description: choice.description,
         })),
       };
-      const decision = await this.#provider.choose(request);
-      const choice = findChoice(choices, decision.choiceId);
+      let decision: DecisionResponse;
+      try {
+        decision = await this.#provider.choose(request);
+      } catch {
+        throw new StrategyExecutionError({
+          phase: 'action',
+          failureCode: 'provider_failed',
+          usage: combinedDecisionUsage(decisions, true),
+          models: combinedDecisionModels(decisions),
+        });
+      }
+      decisionsMade += 1;
       decisions.push({ usage: decision.usage, models: decision.models });
+
+      let choice: ActionChoice;
+      try {
+        choice = findChoice(choices, decision.choiceId);
+      } catch {
+        throw new StrategyExecutionError({
+          phase: 'action',
+          failureCode: 'invalid_action_choice',
+          usage: combinedDecisionUsage(decisions),
+          models: combinedDecisionModels(decisions),
+        });
+      }
 
       if (choice.action.kind === 'finish') {
         return {
@@ -125,17 +152,32 @@ export class GuidedPlaywrightStrategy implements DirectStrategy {
         };
       }
 
-      const currentObservation = await observePage(page);
-      const currentChoice = findChoice(
-        buildActionChoices(currentObservation, task),
-        decision.choiceId,
-      );
-      assertCurrentTarget(observation, currentObservation, choice);
-      await performBrowserAction(page, currentObservation, task, currentChoice.action);
-      actions += 1;
+      try {
+        const currentObservation = await observePage(page);
+        const currentChoice = findChoice(
+          buildActionChoices(currentObservation, task, actionHistory),
+          decision.choiceId,
+        );
+        assertCurrentTarget(observation, currentObservation, choice);
+        await performBrowserAction(page, currentObservation, task, currentChoice.action);
+        actionHistory.push(currentChoice.action);
+        actions += 1;
+      } catch {
+        throw new StrategyExecutionError({
+          phase: 'action',
+          failureCode: 'browser_action_failed',
+          usage: combinedDecisionUsage(decisions),
+          models: combinedDecisionModels(decisions),
+        });
+      }
     }
 
-    throw new Error('The browser agent reached its action limit before finishing.');
+    throw new StrategyExecutionError({
+      phase: 'action',
+      failureCode: 'action_limit_reached',
+      usage: combinedDecisionUsage(decisions),
+      models: combinedDecisionModels(decisions),
+    });
   }
 }
 
@@ -154,6 +196,7 @@ export class ReasoningModelPlaywrightStrategy extends GuidedPlaywrightStrategy {
 export function createSafeDecisionState(
   task: TaskDefinition,
   observation: Awaited<ReturnType<typeof observePage>>,
+  actionHistory: readonly BrowserAction[] = [],
 ): string {
   const safeInstruction = redactInputValues(task.instruction, Object.values(task.inputs));
   const safeText = redactInputValues(observation.text, Object.values(task.inputs));
@@ -161,11 +204,12 @@ export function createSafeDecisionState(
 
   return JSON.stringify({
     task: safeTaskContext(task),
+    actionHistory,
     page: {
       url: redactInputValues(url.origin + url.pathname, Object.values(task.inputs)),
       title: redactInputValues(observation.title, Object.values(task.inputs)),
       text: safeText,
-      controls: observation.controls.map((control) => ({
+      controls: observation.controls.map(({ nativeIndex, nativeInput, ...control }) => ({
         ...control,
         name: redactInputValues(control.name, Object.values(task.inputs)),
       })),
@@ -194,6 +238,7 @@ function assertCurrentTarget(
     || beforeControl.role !== currentControl.role
     || beforeControl.name !== currentControl.name
     || beforeControl.occurrence !== currentControl.occurrence
+    || beforeControl.nativeIndex !== currentControl.nativeIndex
   ) {
     throw new Error('The selected browser action target changed before execution.');
   }
@@ -207,20 +252,41 @@ function taskInput(task: TaskDefinition, key: string): string {
   return value;
 }
 
+function combinedDecisionUsage(
+  decisions: Array<{ usage: ProviderUsage; models: ModelMetadata[] }>,
+  failedAttempt = false,
+): ProviderUsage {
+  const entries = decisions.map((entry) => entry.usage);
+  if (failedAttempt) entries.push({ modelCalls: 1, usagePartial: true });
+  return combineUsage(entries);
+}
+
+function combinedDecisionModels(
+  decisions: Array<{ usage: ProviderUsage; models: ModelMetadata[] }>,
+): ModelMetadata[] {
+  return uniqueModels(decisions.flatMap((entry) => entry.models));
+}
+
 function combineUsage(entries: ProviderUsage[]): ProviderUsage {
   const modelCalls = entries.reduce((total, usage) => total + usage.modelCalls, 0);
-  const hasInputTokens = entries.length > 0 && entries.every((usage) => usage.inputTokens !== undefined);
-  const hasOutputTokens = entries.length > 0 && entries.every((usage) => usage.outputTokens !== undefined);
+  const hasInputTokens = entries.some((usage) => usage.inputTokens !== undefined);
+  const hasOutputTokens = entries.some((usage) => usage.outputTokens !== undefined);
   const hasCost = entries.length > 0 && entries.every((usage) => usage.costUsd !== undefined);
+  const usagePartial = entries.some((usage) => usage.usagePartial === true)
+    || (hasInputTokens && entries.some((usage) => usage.inputTokens === undefined))
+    || (hasOutputTokens && entries.some((usage) => usage.outputTokens === undefined));
   const inputTokens = entries.reduce((total, usage) => total + (usage.inputTokens ?? 0), 0);
   const outputTokens = entries.reduce((total, usage) => total + (usage.outputTokens ?? 0), 0);
-  const costUsd = entries.reduce((total, usage) => total + (usage.costUsd ?? 0), 0);
+  const costUsd = hasCost
+    ? entries.reduce((total, usage) => total + (usage.costUsd ?? 0), 0)
+    : undefined;
 
   return {
     modelCalls,
     ...(hasInputTokens ? { inputTokens } : {}),
     ...(hasOutputTokens ? { outputTokens } : {}),
-    ...(hasCost ? { costUsd } : {}),
+    ...(costUsd !== undefined ? { costUsd } : {}),
+    ...(usagePartial ? { usagePartial: true } : {}),
   };
 }
 
@@ -233,3 +299,7 @@ function uniqueModels(models: ModelMetadata[]): ModelMetadata[] {
     return true;
   });
 }
+
+
+
+

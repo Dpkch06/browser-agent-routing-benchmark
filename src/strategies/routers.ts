@@ -12,6 +12,7 @@ import type {
   DecisionResponse,
 } from './providers.js';
 import { safeTaskContext } from './actions.js';
+import { StrategyExecutionError } from './errors.js';
 
 export type RouterSelection = {
   strategyId: DirectStrategyId;
@@ -83,10 +84,32 @@ export class ModelBasedRouter implements StrategyRouter {
         description: strategyDescriptions[id],
       })),
     };
-    const decision = await this.#provider.choose(request);
+    let decision: DecisionResponse;
+    try {
+      decision = await this.#provider.choose(request);
+    } catch {
+      throw new StrategyExecutionError({
+        phase: 'route',
+        failureCode: 'router_provider_failed',
+        usage: { modelCalls: 1, usagePartial: true },
+        models: [],
+      });
+    }
+
+    let strategyId: DirectStrategyId;
+    try {
+      strategyId = parseStrategyId(decision.choiceId);
+    } catch {
+      throw new StrategyExecutionError({
+        phase: 'route',
+        failureCode: 'invalid_route_choice',
+        usage: decision.usage,
+        models: decision.models,
+      });
+    }
 
     return {
-      strategyId: parseStrategyId(decision.choiceId),
+      strategyId,
       durationMs: Math.round(performance.now() - startedAt),
       usage: decision.usage,
       models: decision.models,

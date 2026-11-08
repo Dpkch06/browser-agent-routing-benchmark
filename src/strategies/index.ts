@@ -8,6 +8,7 @@ import {
   type StrategyRouter,
 } from './routers.js';
 import type { DecisionProvider } from './providers.js';
+export { StrategyExecutionError, type StrategyExecutionFailure } from './errors.js';
 
 export type StrategyProviders = {
   jev: DecisionProvider;
