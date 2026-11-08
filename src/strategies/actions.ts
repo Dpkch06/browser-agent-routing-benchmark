@@ -113,6 +113,14 @@ export async function observePage(page: Page): Promise<PageObservation> {
           if (placeholder) return placeholder;
         }
 
+        if (element instanceof HTMLInputElement && element.type.toLowerCase() === 'checkbox') {
+          const siblingLabel = element.nextElementSibling;
+          if (siblingLabel instanceof HTMLLabelElement) {
+            const nearbyLabel = siblingLabel.innerText.trim();
+            if (nearbyLabel) return nearbyLabel;
+          }
+        }
+
         return element.innerText.trim() || element.getAttribute('title')?.trim() || '';
       };
 
