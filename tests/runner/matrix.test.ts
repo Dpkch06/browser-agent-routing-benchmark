@@ -11,7 +11,7 @@ import {
   type RouterId,
 } from '../../src/domain/schema.js';
 import { practiceTasks, type PracticeTask, type TaskVerification } from '../../src/tasks/registry.js';
-import type { StrategySuite } from '../../src/strategies/index.js';
+import { StrategyExecutionError, type StrategySuite } from '../../src/strategies/index.js';
 import type { DirectStrategy, DirectStrategyRun } from '../../src/strategies/direct.js';
 import type { RouterSelection, StrategyRouter } from '../../src/strategies/routers.js';
 import { runMatrix, type BrowserFactory, type MatrixProgress } from '../../src/runner/matrix.js';
@@ -89,7 +89,18 @@ function fakeSuite(args: { failStrategy?: string; failRouter?: string } = {}): S
       id: strategyId,
       run: async ({ page, task }): Promise<DirectStrategyRun> => {
         if (args.failStrategy === task.id + ':' + strategyId) {
-          throw new Error('Fixture strategy failure.');
+          throw new StrategyExecutionError({
+            phase: 'action',
+            failureCode: 'provider_failed',
+            usage: {
+              modelCalls: 2,
+              inputTokens: 50,
+              outputTokens: 10,
+              costUsd: 0.001,
+              usagePartial: true,
+            },
+            models: [modelMetadata[strategyId]],
+          });
         }
         await page.locator('body').evaluate((body) => {
           body.setAttribute('data-complete', 'true');
@@ -146,7 +157,12 @@ function fakeSuite(args: { failStrategy?: string; failRouter?: string } = {}): S
       id: routerId,
       route: async (task): Promise<RouterSelection> => {
         if (args.failRouter === task.id + ':' + routerId) {
-          throw new Error('Fixture router failure.');
+          throw new StrategyExecutionError({
+            phase: 'route',
+            failureCode: 'router_provider_failed',
+            usage: { modelCalls: 1, inputTokens: 8, usagePartial: true },
+            models: [],
+          });
         }
         const hasModel = routerId !== 'rule-based-router';
         const usage = routerId === 'jev-router'
@@ -283,7 +299,14 @@ describe('runMatrix', () => {
       && result.execution.strategyId === 'deterministic-playwright'
     );
     expect(strategyFailure?.outcome).toEqual({
-      status: 'failed', phase: 'action', failureCode: 'strategy_execution_failed',
+      status: 'failed', phase: 'action', failureCode: 'provider_failed',
+    });
+    expect(strategyFailure?.usage).toEqual({
+      modelCalls: 2,
+      inputTokens: 50,
+      outputTokens: 10,
+      costUsd: 0.001,
+      usagePartial: true,
     });
     const routerFailure = report.results.find((result) =>
       result.taskId === 'the-internet-login'
@@ -294,9 +317,14 @@ describe('runMatrix', () => {
     if (!routerFailure || routerFailure.execution.kind !== 'router') {
       throw new Error('Expected a failed Jev router result.');
     }
-    expect(routerFailure.execution.route).toMatchObject({ status: 'failed', failureCode: 'router_failed' });
+    expect(routerFailure.execution.route).toMatchObject({ status: 'failed', failureCode: 'router_provider_failed' });
     expect(routerFailure.outcome).toEqual({
-      status: 'failed', phase: 'route', failureCode: 'router_failed',
+      status: 'failed', phase: 'route', failureCode: 'router_provider_failed',
+    });
+    expect(routerFailure.usage).toEqual({
+      modelCalls: 1,
+      inputTokens: 8,
+      usagePartial: true,
     });
   });
 
