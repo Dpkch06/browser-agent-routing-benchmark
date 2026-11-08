@@ -1,4 +1,4 @@
-import type { Page } from 'playwright';
+import { errors as playwrightErrors, type Page } from 'playwright';
 import {
   type DirectStrategyId,
   type ModelMetadata,
@@ -162,10 +162,12 @@ export class GuidedPlaywrightStrategy implements DirectStrategy {
         await performBrowserAction(page, currentObservation, task, currentChoice.action);
         actionHistory.push(currentChoice.action);
         actions += 1;
-      } catch {
+      } catch (error) {
         throw new StrategyExecutionError({
           phase: 'action',
-          failureCode: 'browser_action_failed',
+          failureCode: error instanceof playwrightErrors.TimeoutError
+            ? 'browser_action_timeout'
+            : 'browser_action_failed',
           usage: combinedDecisionUsage(decisions),
           models: combinedDecisionModels(decisions),
         });
@@ -299,7 +301,3 @@ function uniqueModels(models: ModelMetadata[]): ModelMetadata[] {
     return true;
   });
 }
-
-
-
-

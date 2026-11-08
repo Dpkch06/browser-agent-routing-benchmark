@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   OpenAICompatibleChoiceProvider,
   TypeSafeChoiceProvider,
@@ -15,7 +15,31 @@ const request: DecisionRequest = {
   ],
 };
 
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
 describe('TypeSafeChoiceProvider', () => {
+  it('sets a 15-second abort timeout on the provider request', async () => {
+    const timeoutSpy = vi.spyOn(AbortSignal, 'timeout');
+    const provider = new TypeSafeChoiceProvider({
+      apiKey: 'test-key',
+      modelId: 'jev-1.14.0',
+      fetchFn: async (_input, init) => {
+        expect(init?.signal).toBeInstanceOf(AbortSignal);
+        return new Response(JSON.stringify({
+          model: 'jev-1.14.0',
+          answers: { selection: { type: 'choice', choice: 'deterministic-playwright' } },
+          usage: { input_tokens: 28, output_tokens: 4 },
+        }), { status: 200 });
+      },
+    });
+
+    await provider.choose(request);
+
+    expect(timeoutSpy).toHaveBeenCalledWith(15_000);
+  });
+
   it('parses a typed Choice answer and usage metadata', async () => {
     const provider = new TypeSafeChoiceProvider({
       apiKey: 'test-key',
@@ -68,6 +92,27 @@ describe('TypeSafeChoiceProvider', () => {
 });
 
 describe('OpenAICompatibleChoiceProvider', () => {
+  it('sets a 15-second abort timeout on the provider request', async () => {
+    const timeoutSpy = vi.spyOn(AbortSignal, 'timeout');
+    const provider = new OpenAICompatibleChoiceProvider({
+      endpoint: 'https://model.example/v1/chat/completions',
+      apiKey: 'test-key',
+      modelId: 'reasoning-model-test',
+      fetchFn: async (_input, init) => {
+        expect(init?.signal).toBeInstanceOf(AbortSignal);
+        return new Response(JSON.stringify({
+          model: 'reasoning-model-test',
+          choices: [{ message: { content: JSON.stringify({ choiceId: 'jev-guided-playwright' }) } }],
+          usage: { prompt_tokens: 90, completion_tokens: 12 },
+        }), { status: 200 });
+      },
+    });
+
+    await provider.choose(request);
+
+    expect(timeoutSpy).toHaveBeenCalledWith(15_000);
+  });
+
   it('parses a JSON choice and standard chat usage fields', async () => {
     const provider = new OpenAICompatibleChoiceProvider({
       endpoint: 'https://model.example/v1/chat/completions',

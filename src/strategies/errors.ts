@@ -4,7 +4,7 @@ import type { ProviderUsage } from './providers.js';
 export type StrategyExecutionFailure =
   | {
       phase: 'action';
-      failureCode: 'provider_failed' | 'invalid_action_choice' | 'browser_action_failed' | 'action_limit_reached';
+      failureCode: 'provider_failed' | 'invalid_action_choice' | 'browser_action_failed' | 'browser_action_timeout' | 'action_limit_reached';
       usage: ProviderUsage;
       models: ModelMetadata[];
     }

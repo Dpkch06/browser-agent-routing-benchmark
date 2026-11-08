@@ -1,6 +1,8 @@
 import * as z from 'zod';
 import type { ModelMetadata } from '../domain/schema.js';
 
+const PROVIDER_TIMEOUT_MS = 15_000;
+
 export const decisionOptionSchema = z.object({
   id: z.string().min(1),
   description: z.string().min(1),
@@ -77,6 +79,7 @@ export class TypeSafeChoiceProvider implements DecisionProvider {
       request.options.map((option) => [option.id, option.description]),
     );
     const response = await this.#fetchFn('https://api.typesafe.ai/v1/systemone', {
+      signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
       method: 'POST',
       headers: {
         authorization: 'Bearer ' + this.#apiKey,
@@ -177,6 +180,7 @@ export class OpenAICompatibleChoiceProvider implements DecisionProvider {
   async choose(requestInput: DecisionRequest): Promise<DecisionResponse> {
     const request = decisionRequestSchema.parse(requestInput);
     const response = await this.#fetchFn(this.#endpoint, {
+      signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
       method: 'POST',
       headers: {
         authorization: 'Bearer ' + this.#apiKey,
@@ -251,5 +255,3 @@ function assertOfferedChoice(choiceId: string, options: readonly DecisionOption[
     throw new Error('Provider selected an ID outside the offered choices.');
   }
 }
-
-
