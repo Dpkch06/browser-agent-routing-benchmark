@@ -1,0 +1,330 @@
+{
+  "schemaVersion": 1,
+  "runId": "b0000000-0000-4000-8000-000000000001",
+  "startedAt": "2026-10-31T12:00:00.000Z",
+  "completedAt": "2026-10-31T12:02:00.000Z",
+  "environment": {
+    "nodeVersion": "v24.0.0",
+    "playwrightVersion": "sample",
+    "browser": "chromium",
+    "browserVersion": "sample"
+  },
+  "results": [
+    {
+      "taskId": "todomvc-add-complete",
+      "execution": {
+        "kind": "direct",
+        "strategyId": "deterministic-playwright"
+      },
+      "outcome": {
+        "status": "succeeded",
+        "verification": "passed"
+      },
+      "durationMs": 4200,
+      "usage": {
+        "modelCalls": 0
+      }
+    },
+    {
+      "taskId": "todomvc-add-complete",
+      "execution": {
+        "kind": "direct",
+        "strategyId": "jev-guided-playwright"
+      },
+      "outcome": {
+        "status": "succeeded",
+        "verification": "passed"
+      },
+      "durationMs": 6100,
+      "usage": {
+        "modelCalls": 2,
+        "inputTokens": 580,
+        "outputTokens": 115
+      },
+      "models": [
+        {
+          "stage": "executor",
+          "provider": "TypeSafe",
+          "modelId": "jev-sample",
+          "version": "synthetic"
+        }
+      ]
+    },
+    {
+      "taskId": "todomvc-add-complete",
+      "execution": {
+        "kind": "direct",
+        "strategyId": "reasoning-model-playwright"
+      },
+      "outcome": {
+        "status": "succeeded",
+        "verification": "passed"
+      },
+      "durationMs": 8000,
+      "usage": {
+        "modelCalls": 3,
+        "inputTokens": 740,
+        "outputTokens": 150
+      },
+      "models": [
+        {
+          "stage": "executor",
+          "provider": "OpenAI-compatible",
+          "modelId": "reasoning-sample",
+          "version": "synthetic"
+        }
+      ]
+    },
+    {
+      "taskId": "todomvc-add-complete",
+      "execution": {
+        "kind": "router",
+        "routerId": "rule-based-router",
+        "route": {
+          "status": "selected",
+          "strategyId": "deterministic-playwright",
+          "durationMs": 0
+        }
+      },
+      "outcome": {
+        "status": "succeeded",
+        "verification": "passed"
+      },
+      "durationMs": 5100,
+      "usage": {
+        "modelCalls": 0
+      }
+    },
+    {
+      "taskId": "todomvc-add-complete",
+      "execution": {
+        "kind": "router",
+        "routerId": "jev-router",
+        "route": {
+          "status": "selected",
+          "strategyId": "jev-guided-playwright",
+          "durationMs": 430
+        }
+      },
+      "outcome": {
+        "status": "succeeded",
+        "verification": "passed"
+      },
+      "durationMs": 7400,
+      "usage": {
+        "modelCalls": 2,
+        "inputTokens": 800,
+        "outputTokens": 140
+      },
+      "models": [
+        {
+          "stage": "router",
+          "provider": "TypeSafe",
+          "modelId": "jev-sample",
+          "version": "synthetic"
+        },
+        {
+          "stage": "executor",
+          "provider": "TypeSafe",
+          "modelId": "jev-sample",
+          "version": "synthetic"
+        }
+      ]
+    },
+    {
+      "taskId": "todomvc-add-complete",
+      "execution": {
+        "kind": "router",
+        "routerId": "reasoning-model-router",
+        "route": {
+          "status": "selected",
+          "strategyId": "reasoning-model-playwright",
+          "durationMs": 860
+        }
+      },
+      "outcome": {
+        "status": "succeeded",
+        "verification": "passed"
+      },
+      "durationMs": 9700,
+      "usage": {
+        "modelCalls": 3,
+        "inputTokens": 1000,
+        "outputTokens": 180
+      },
+      "models": [
+        {
+          "stage": "router",
+          "provider": "OpenAI-compatible",
+          "modelId": "reasoning-sample",
+          "version": "synthetic"
+        },
+        {
+          "stage": "executor",
+          "provider": "OpenAI-compatible",
+          "modelId": "reasoning-sample",
+          "version": "synthetic"
+        }
+      ]
+    },
+    {
+      "taskId": "the-internet-login",
+      "execution": {
+        "kind": "direct",
+        "strategyId": "deterministic-playwright"
+      },
+      "outcome": {
+        "status": "succeeded",
+        "verification": "passed"
+      },
+      "durationMs": 4700,
+      "usage": {
+        "modelCalls": 0
+      }
+    },
+    {
+      "taskId": "the-internet-login",
+      "execution": {
+        "kind": "direct",
+        "strategyId": "jev-guided-playwright"
+      },
+      "outcome": {
+        "status": "failed",
+        "phase": "action",
+        "failureCode": "strategy_execution_failed"
+      },
+      "durationMs": 6600,
+      "usage": {
+        "modelCalls": 2,
+        "inputTokens": 580,
+        "outputTokens": 115
+      },
+      "models": [
+        {
+          "stage": "executor",
+          "provider": "TypeSafe",
+          "modelId": "jev-sample",
+          "version": "synthetic"
+        }
+      ]
+    },
+    {
+      "taskId": "the-internet-login",
+      "execution": {
+        "kind": "direct",
+        "strategyId": "reasoning-model-playwright"
+      },
+      "outcome": {
+        "status": "succeeded",
+        "verification": "passed"
+      },
+      "durationMs": 8500,
+      "usage": {
+        "modelCalls": 3,
+        "inputTokens": 740,
+        "outputTokens": 150
+      },
+      "models": [
+        {
+          "stage": "executor",
+          "provider": "OpenAI-compatible",
+          "modelId": "reasoning-sample",
+          "version": "synthetic"
+        }
+      ]
+    },
+    {
+      "taskId": "the-internet-login",
+      "execution": {
+        "kind": "router",
+        "routerId": "rule-based-router",
+        "route": {
+          "status": "selected",
+          "strategyId": "deterministic-playwright",
+          "durationMs": 0
+        }
+      },
+      "outcome": {
+        "status": "succeeded",
+        "verification": "passed"
+      },
+      "durationMs": 5800,
+      "usage": {
+        "modelCalls": 0
+      }
+    },
+    {
+      "taskId": "the-internet-login",
+      "execution": {
+        "kind": "router",
+        "routerId": "jev-router",
+        "route": {
+          "status": "selected",
+          "strategyId": "jev-guided-playwright",
+          "durationMs": 430
+        }
+      },
+      "outcome": {
+        "status": "failed",
+        "phase": "action",
+        "failureCode": "strategy_execution_failed"
+      },
+      "durationMs": 8100,
+      "usage": {
+        "modelCalls": 2,
+        "inputTokens": 800,
+        "outputTokens": 140
+      },
+      "models": [
+        {
+          "stage": "router",
+          "provider": "TypeSafe",
+          "modelId": "jev-sample",
+          "version": "synthetic"
+        },
+        {
+          "stage": "executor",
+          "provider": "TypeSafe",
+          "modelId": "jev-sample",
+          "version": "synthetic"
+        }
+      ]
+    },
+    {
+      "taskId": "the-internet-login",
+      "execution": {
+        "kind": "router",
+        "routerId": "reasoning-model-router",
+        "route": {
+          "status": "selected",
+          "strategyId": "reasoning-model-playwright",
+          "durationMs": 860
+        }
+      },
+      "outcome": {
+        "status": "succeeded",
+        "verification": "passed"
+      },
+      "durationMs": 10400,
+      "usage": {
+        "modelCalls": 3,
+        "inputTokens": 1000,
+        "outputTokens": 180
+      },
+      "models": [
+        {
+          "stage": "router",
+          "provider": "OpenAI-compatible",
+          "modelId": "reasoning-sample",
+          "version": "synthetic"
+        },
+        {
+          "stage": "executor",
+          "provider": "OpenAI-compatible",
+          "modelId": "reasoning-sample",
+          "version": "synthetic"
+        }
+      ]
+    }
+  ]
+}

@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "benchmark": "npm run build && node dist/runner/cli.js",
+    "playground": "npm run build && node dist/playground/cli.js",
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
