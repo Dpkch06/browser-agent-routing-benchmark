@@ -48,6 +48,7 @@ let selectedFileName = null;
 let selectedReport = null;
 let submissionPending = false;
 let reportIndex = [];
+let missingSettings = [];
 
 function make(tag, className, text) {
   const element = document.createElement(tag);
@@ -127,6 +128,10 @@ function renderMatrix(report, liveState) {
     for (const result of report.results) {
       resultByKey.set(result.taskId + ':' + executionKey(result.execution), result);
     }
+  } else if (Array.isArray(liveState?.completedCells)) {
+    for (const result of liveState.completedCells) {
+      resultByKey.set(result.taskId + ':' + executionKey(result.execution), result);
+    }
   }
   const progress = liveState?.progress;
   const fragment = document.createDocumentFragment();
@@ -138,11 +143,9 @@ function renderMatrix(report, liveState) {
     for (const strategyId of strategyIds) {
       const cell = make('td');
       const result = resultByKey.get(taskId + ':' + strategyId);
-      const ordinal = strategyOrdinal(taskId, strategyId);
       const isCurrent = !report && progress && liveState.kind === 'running'
-        && progress.index + 1 === ordinal;
-      const isPrevious = !report && liveState.kind === 'running'
-        && progress && progress.index >= ordinal;
+        && progress.taskId === taskId
+        && executionKey(progress.execution) === strategyId;
       const content = make('div', 'matrix-cell');
       if (result) {
         const status = result.outcome.status === 'succeeded' ? 'succeeded' : 'failed';
@@ -154,12 +157,8 @@ function renderMatrix(report, liveState) {
         }
       } else if (isCurrent) {
         content.dataset.status = 'running';
-        content.append(make('span', 'cell-status', 'Next cell'));
-        content.append(make('span', 'cell-meta', 'Preparing'));
-      } else if (isPrevious) {
-        content.dataset.status = 'queued';
-        content.append(make('span', 'cell-status', 'Cell finished'));
-        content.append(make('span', 'cell-meta', 'Open report for outcome'));
+        content.append(make('span', 'cell-status', 'Running'));
+        content.append(make('span', 'cell-meta', 'Cell ' + progress.index + ' of ' + (progress.total || 12)));
       } else {
         content.dataset.status = 'queued';
         content.append(make('span', 'cell-status', liveState?.kind === 'running' ? 'Queued' : 'No result'));
@@ -173,21 +172,20 @@ function renderMatrix(report, liveState) {
   elements.matrixBody.replaceChildren(fragment);
 }
 
-function strategyOrdinal(taskId, strategyId) {
-  return taskIds.indexOf(taskId) * strategyIds.length + strategyIds.indexOf(strategyId) + 1;
-}
-
-function setProgress(index, total, liveState) {
-  const safeTotal = Number.isFinite(total) && total > 0 ? total : 12;
-  const safeIndex = Number.isFinite(index) ? Math.max(0, Math.min(index, safeTotal)) : 0;
-  elements.progressCount.textContent = safeIndex + ' / ' + safeTotal;
+function setProgress(liveState) {
+  const progress = liveState?.progress;
+  const safeTotal = Number.isFinite(progress?.total) && progress.total > 0 ? progress.total : 12;
+  const reportedCompleted = Array.isArray(liveState?.completedCells) ? liveState.completedCells.length : 0;
+  const safeCompleted = liveState?.kind === 'completed' && reportedCompleted === 0
+    ? safeTotal
+    : Math.max(0, Math.min(reportedCompleted, safeTotal));
+  elements.progressCount.textContent = safeCompleted + ' / ' + safeTotal;
   elements.progressBar.setAttribute('aria-valuemax', String(safeTotal));
-  elements.progressBar.setAttribute('aria-valuenow', String(safeIndex));
-  elements.progressFill.style.width = (safeIndex / safeTotal * 100) + '%';
+  elements.progressBar.setAttribute('aria-valuenow', String(safeCompleted));
+  elements.progressFill.style.width = (safeCompleted / safeTotal * 100) + '%';
   if (liveState?.kind === 'running') {
-    const progress = liveState.progress;
     elements.runSubtitle.textContent = progress
-      ? 'Cell ' + safeIndex + ' of ' + safeTotal + ' finished. Preparing the next cell.'
+      ? 'Cell ' + progress.index + ' of ' + safeTotal + ' is running. ' + safeCompleted + ' cells finished.'
       : 'Preparing the browser for the first cell.';
   } else if (liveState?.kind === 'completed') {
     elements.runSubtitle.textContent = 'Matrix run complete. Select its saved report to inspect outcomes.';
@@ -230,11 +228,11 @@ async function refreshStatus() {
   if (!response.ok || !body.state) throw new Error('status_request_failed');
   const liveState = body.state;
   stateKind = liveState.kind;
-  const missing = Array.isArray(body.requiredSettings) ? body.requiredSettings : [];
-  const canStart = response.ok && liveState.kind !== 'running' && missing.length === 0;
+  missingSettings = Array.isArray(body.requiredSettings) ? body.requiredSettings : [];
+  const canStart = response.ok && liveState.kind !== 'running' && missingSettings.length === 0;
   setServerState(true, 'Local server connected');
   updateRunButton(liveState.kind, canStart);
-  setProgress(liveState.progress?.index ?? 0, liveState.progress?.total ?? 12, liveState);
+  setProgress(liveState);
   if (liveState.kind === 'running') {
     renderMatrix(null, liveState);
     startPolling();
@@ -243,8 +241,8 @@ async function refreshStatus() {
   } else {
     renderMatrix(null, liveState);
   }
-  if (missing.length > 0) {
-    setNotice({ title: 'Provider configuration is incomplete. Add these settings to the local server environment before running the matrix.', items: missing }, 'warning');
+  if (missingSettings.length > 0) {
+    setNotice({ title: 'Provider configuration is incomplete. Add these settings to the local server environment before running the matrix.', items: missingSettings }, 'warning');
     updateRunButton(liveState.kind, false);
   }
   if (liveState.kind === 'completed' && !selectedReport && Array.isArray(body.recentReport)) {
@@ -261,10 +259,10 @@ function startPolling() {
       if (status.kind !== 'running') {
         window.clearInterval(pollTimer);
         pollTimer = null;
-      await loadReports();
-      if (status.kind === 'completed' && reportIndex[0]) {
-        await selectReport(reportIndex[0].fileName);
-      }
+        await loadReports();
+        if (status.kind === 'completed' && reportIndex[0]) {
+          await selectReport(reportIndex[0].fileName);
+        }
       }
     } catch {
       window.clearInterval(pollTimer);
@@ -414,8 +412,9 @@ async function startRun() {
       setNotice('Benchmark run started. Progress will update as each cell finishes.', 'success');
       clearSelection();
       elements.confirmDialog.close();
-      renderMatrix(null, { kind: 'running', progress: { index: 0, total: 12 } });
-      setProgress(0, 12, { kind: 'running' });
+      const startingState = { kind: 'running', completedCells: [], progress: null };
+      renderMatrix(null, startingState);
+      setProgress(startingState);
       await refreshStatus();
       startPolling();
       return;
@@ -434,7 +433,9 @@ async function startRun() {
     submissionPending = false;
     elements.confirmRun.disabled = false;
     elements.confirmRun.textContent = 'Confirm and start';
-    if (elements.confirmDialog.open && stateKind !== 'running') updateRunButton(stateKind, true);
+    if (elements.confirmDialog.open && stateKind !== 'running') {
+      updateRunButton(stateKind, missingSettings.length === 0);
+    }
   }
 }
 
@@ -451,7 +452,7 @@ elements.refreshReports.addEventListener('click', () => {
 renderEmptyMatrix();
 void Promise.all([refreshStatus(), loadReports()]).then(() => {
   if (stateKind !== 'running' && reportIndex[0]) return selectReport(reportIndex[0].fileName);
-  setNotice('Local benchmark server is ready. Start a run when you are ready to use provider calls.', '');
+  if (missingSettings.length === 0) setNotice('Local benchmark server is ready. Start a run when you are ready to use provider calls.', '');
 }).catch(() => {
   setServerState(false, 'Local server unavailable');
   updateRunButton('idle', false);
