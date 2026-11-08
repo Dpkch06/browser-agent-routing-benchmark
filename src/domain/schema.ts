@@ -76,12 +76,20 @@ const usageSchema = z.object({
   costUsd: z.number().nonnegative().finite().optional(),
 }).strict();
 
+export const modelMetadataSchema = z.object({
+  stage: z.enum(['router', 'executor']),
+  provider: z.string().trim().min(1),
+  modelId: z.string().trim().min(1),
+  version: z.string().trim().min(1).optional(),
+}).strict();
+
 export const benchmarkResultSchema = z.object({
   taskId: taskIdSchema,
   execution: executionSchema,
   outcome: outcomeSchema,
   durationMs: z.number().int().nonnegative(),
   usage: usageSchema,
+  models: z.array(modelMetadataSchema).optional(),
 }).strict().superRefine((result, context) => {
   if (result.execution.kind === 'router') {
     if (result.execution.route.status === 'failed' && result.outcome.status !== 'failed') {
@@ -171,3 +179,4 @@ export type TaskDefinition = z.infer<typeof taskDefinitionSchema>;
 export type Execution = z.infer<typeof executionSchema>;
 export type BenchmarkResult = z.infer<typeof benchmarkResultSchema>;
 export type BenchmarkReport = z.infer<typeof benchmarkReportSchema>;
+export type ModelMetadata = z.infer<typeof modelMetadataSchema>;

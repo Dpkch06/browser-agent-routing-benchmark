@@ -3,6 +3,7 @@ import * as z from 'zod';
 import {
   benchmarkReportSchema,
   directStrategyIds,
+  modelMetadataSchema,
   routerIds,
   taskDefinitionSchema,
   taskIds,
@@ -83,6 +84,41 @@ describe('benchmark report schema', () => {
     const report = validReport();
     report.completedAt = '2026-11-08T09:59:00.000Z';
     expect(() => benchmarkReportSchema.parse(report)).toThrow();
+  });
+
+  it('round-trips optional model identity and version without storing prompts or credentials', () => {
+    const report = validReport();
+    const modelResult = report.results.find((result) =>
+      result.execution.kind === 'direct' && result.execution.strategyId === 'jev-guided-playwright'
+    );
+    if (!modelResult) throw new Error('Expected a Jev strategy result in the matrix fixture');
+    modelResult.models = [{
+      stage: 'executor',
+      provider: 'TypeSafe',
+      modelId: 'jev',
+      version: '1.13.0',
+    }];
+
+    const serialized = JSON.stringify(report);
+    const parsed = benchmarkReportSchema.parse(JSON.parse(serialized));
+    const parsedResult = parsed.results.find((result) =>
+      result.execution.kind === 'direct' && result.execution.strategyId === 'jev-guided-playwright'
+    );
+
+    expect(parsedResult?.models).toEqual([{
+      stage: 'executor',
+      provider: 'TypeSafe',
+      modelId: 'jev',
+      version: '1.13.0',
+    }]);
+    expect(modelMetadataSchema.safeParse({
+      stage: 'executor',
+      provider: 'TypeSafe',
+      modelId: 'jev',
+      version: '1.13.0',
+      apiKey: 'placeholder',
+      prompt: 'not allowed in reports',
+    }).success).toBe(false);
   });
 
   it('rejects a failed route paired with a successful outcome', () => {
