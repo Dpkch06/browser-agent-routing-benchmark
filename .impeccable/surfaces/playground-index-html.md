@@ -15,6 +15,6 @@ STORY: The operator sees the task and six strategies, starts one full matrix run
 
 FIRST VIEWPORT: A cobalt top navigation names the project and shows local server status. A compact run action and task scope sit above the work area. The twelve-cell matrix leads, with clear queued, running, passed, and failed states. A saved report list follows below and opens the chosen JSON result.
 
-FORM: Candidate three in the ordered set of seven grounded visual directions, selected for the project's measurement and comparison task. The user approved the project scope and left visual direction open, so this choice is inferred from the benchmark's measurement needs. seed: none (unavailable)
+FORM: Candidate three in the ordered set of seven grounded visual directions, selected for the project's measurement and comparison task. The user confirmed the compact technical layout and the scientific data plate direction. The primary flow is to start one matrix run, follow cell progress, then inspect saved reports. seed: none (unavailable)
 
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance

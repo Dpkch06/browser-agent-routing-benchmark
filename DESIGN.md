@@ -51,7 +51,7 @@ components:
 
 ## Overview
 
-The playground is a measurement workspace for browser strategy experiments. Its visual direction uses the language of scientific data plates: an ice-white work surface, a cobalt shell, ink navy text, and citron for selection. This direction was inferred from the benchmark's measurement and comparison needs after the user approved project scope and left visual direction open. It is not a user-confirmed creative North Star.
+The playground is a measurement workspace for browser strategy experiments. Its visual direction uses the language of scientific data plates: an ice-white work surface, a cobalt shell, ink navy text, and citron for selection. The user confirmed this direction and the compact technical layout, with the main flow built around starting one matrix run, following cell progress, and inspecting saved reports.
 
 Outcomes use semantic color, while timing and usage use tabular numerals. Small measurement ticks connect completed matrix cells to their result and duration. Use standard web controls and tables so the dense comparison stays familiar. No raster assets are part of the system.
 
