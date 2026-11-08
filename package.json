@@ -5,6 +5,7 @@
   "description": "Compare browser execution strategies and routing policies on shared practice-site tasks.",
   "type": "module",
   "scripts": {
+    "benchmark": "npm run build && node dist/runner/cli.js",
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
