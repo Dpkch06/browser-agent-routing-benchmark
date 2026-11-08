@@ -1,0 +1,26 @@
+{
+  "name": "browser-agent-routing-benchmark",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Compare browser execution strategies and routing policies on shared practice-site tasks.",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Dpkch06/browser-agent-routing-benchmark.git"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "playwright": "^1.65.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  }
+}

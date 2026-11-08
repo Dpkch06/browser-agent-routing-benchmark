@@ -22,3 +22,17 @@ Use two practice-site tasks, one full matrix sweep, and one shared verifier per 
 ## Development status
 
 The initial setup and issue plan are in docs/plan.md. Read AGENTS.md and the linked domain and tracker docs before making changes.
+
+## Local development
+
+Use Node.js 24 or newer.
+
+```sh
+npm install
+npx playwright install chromium
+npm test
+npm run typecheck
+npm run build
+```
+
+These checks use local fixtures and do not call model APIs or practice sites. Live browser and model runs will use separate explicit commands.
