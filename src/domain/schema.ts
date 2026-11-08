@@ -181,5 +181,3 @@ export type Execution = z.infer<typeof executionSchema>;
 export type BenchmarkResult = z.infer<typeof benchmarkResultSchema>;
 export type BenchmarkReport = z.infer<typeof benchmarkReportSchema>;
 export type ModelMetadata = z.infer<typeof modelMetadataSchema>;
-
-

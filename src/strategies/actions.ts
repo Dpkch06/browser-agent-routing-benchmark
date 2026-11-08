@@ -336,7 +336,3 @@ export function redactInputValues(text: string, inputValues: string[]): string {
     value.length === 0 ? result : result.split(value).join('[task input]')
   ), text);
 }
-
-
-
-

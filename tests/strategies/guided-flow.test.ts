@@ -198,7 +198,3 @@ describe('guided strategy action history', () => {
     await page.close();
   });
 });
-
-
-
-

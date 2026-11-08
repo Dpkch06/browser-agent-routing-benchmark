@@ -71,5 +71,3 @@ describe('TodoMVC checkbox label fallback', () => {
     }
   });
 });
-
-
