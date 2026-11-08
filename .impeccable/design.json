@@ -12,6 +12,7 @@
       "cobalt": { "role": "primary", "displayName": "Cobalt", "canonical": "#174fb5" },
       "cobalt-deep": { "role": "primary", "displayName": "Deep cobalt", "canonical": "#103b88" },
       "citron": { "role": "secondary", "displayName": "Citron selection", "canonical": "#e5f26a" },
+      "citron-focus": { "role": "secondary", "displayName": "Deeper citron focus ring", "canonical": "#b5ce2d" },
       "pass": { "role": "tertiary", "displayName": "Verified pass", "canonical": "#19734a" },
       "pass-bg": { "role": "tertiary", "displayName": "Pass tint", "canonical": "#e3f5e9" },
       "fail": { "role": "tertiary", "displayName": "Verified failure", "canonical": "#a62a35" },

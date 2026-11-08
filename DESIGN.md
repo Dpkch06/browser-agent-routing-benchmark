@@ -10,6 +10,7 @@ colors:
   cobalt: "#174fb5"
   cobalt-deep: "#103b88"
   citron: "#e5f26a"
+  citron-focus: "#b5ce2d"
   pass: "#19734a"
   pass-bg: "#e3f5e9"
   fail: "#a62a35"
@@ -32,8 +33,6 @@ typography:
     fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
     fontSize: "12px"
     fontWeight: 700
-rounded: {}
-spacing: {}
 components:
   button-primary:
     backgroundColor: "{colors.cobalt}"
@@ -62,7 +61,7 @@ The finish review resolved its only reported material progress finding, which co
 
 ## Colors
 
-The cobalt family identifies the application shell and active work. Citron marks selection and keyboard focus. Ink and muted navy carry content; the ice-white paper and pale blue ground separate the workspace from its surrounding canvas.
+The cobalt family identifies the application shell and active work. Citron (#e5f26a) marks selection, while deeper citron (#b5ce2d) marks keyboard focus. Ink and muted navy carry content; the ice-white paper and pale blue ground separate the workspace from its surrounding canvas.
 
 **The Outcome Color Rule.** Green and red communicate verified pass and fail outcomes. Amber is reserved for warnings. Do not use these colors as general decoration.
 
